@@ -4,36 +4,67 @@ from ple.games.flappybird import FlappyBird
 from agent import Agent
 
 if __name__ == "__main__":
-    #parameters
-    frame_skip = 2
-    force_fps = True #False - slower speed
-    display_screen = True
-
-    episodes = 200
-    max_score = 0
-
     #initialize game and agent
-    game = FlappyBird()
-    env = PLE(game, frame_skip=frame_skip, force_fps=force_fps, display_screen=display_screen)
+    env = PLE(FlappyBird(), frame_skip=2, force_fps=True, display_screen=True)
     env.init()
 
-    agent = Agent(env.getActionSet())
+    agent = Agent()
 
     #start training
-    for episode in range(episodes):
-        env.reset_game()
-        total_reward = 0
+    max_episodes = 100
+    file = open("data/scores.txt", "w")
 
-        while True:
-            action = agent.pick_action()
-            reward = env.act(action)
-            current_state = np.array(env.getScreenRGB())
+    for episode in range(max_episodes):
+        best_score = 0
+        average_score = 0
 
-            if env.score() > max_score:
-                max_score = env.score()
+        #play 100 games before updating the weights
+        for attempt in range(100):
+            env.reset_game()
 
-            if env.game_over():
-                break
+            while True:
+                score = env.score()
+
+                #get current state
+                state = agent.get_state(env.getGameState())
+
+                #choose an action
+                action_index = agent.get_action(state, env.getActionSet())
+                action_value = env.getActionSet()[action_index]
+
+                #take selected action and move to the next state
+                reward = env.act(action_value) * 100
+                # reward = agent.get_reward(env)
+                next_state = agent.get_state(env.getGameState())
+                done = env.game_over()
+
+                #save in replay buffer
+                agent.memory.append((state, action_index, reward, next_state, done))
+
+                if done:
+                    break
+                
+            average_score += score
+            
+            if score > best_score:
+                best_score = score
+
+        #save results
+        average_score //= 100
+        file.write(f"{average_score} {best_score}\n")
         
-    #best result
-    print(max_score)
+        print(f"Episode {episode}: Average score: {average_score} \t Best score: {best_score}")
+
+        #train the network
+        agent.experience_replay()
+        
+        #decay probability of taking random action and importance of future rewards
+        if agent.epsilon > 0.1:
+            agent.epsilon -= 0.008
+        if agent.gamma > 0.1:
+            agent.gamma -= 0.008
+
+    file.close()
+
+    #save trained model
+    agent.model.save("trained_model")
