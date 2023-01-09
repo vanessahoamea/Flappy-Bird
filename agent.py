@@ -8,17 +8,18 @@ from tensorflow import convert_to_tensor, expand_dims
 
 class Agent:
     def __init__(self):
-        self.epsilon = 1
+        self.epsilon = 0
         self.gamma = 0.9
-        self.learning_rate = 0.3
+        self.learning_rate = 0.01
         self.model = self.create_model()
         self.memory = deque(maxlen=1000)
-        self.batch_size = 28
+        self.batch_size = 250
+        self.games_played = 0
     
     def create_model(self):
         model = Sequential()
 
-        model.add(Dense(10, activation="relu", input_shape=(3,)))
+        model.add(Dense(64, activation="relu", input_shape=(6,)))
         model.add(Dense(2, activation="linear"))
 
         model.compile(loss="mse", optimizer=Adam(self.learning_rate))
@@ -26,7 +27,8 @@ class Agent:
         return model
     
     def get_action(self, state, actions):
-        if np.random.binomial(1, self.epsilon) == 1:
+        if random.randint(0, 200) < self.epsilon:
+        # if np.random.binomial(1, self.epsilon) == 1:
             #select a random action
             action_index = np.random.randint(0, len(actions))
         else:
@@ -40,27 +42,15 @@ class Agent:
     def get_state(self, state):
         player_y = state["player_y"]
         horizontal_distance = state["next_pipe_dist_to_player"]
+        top_distance = state["next_pipe_top_y"] - state["player_y"]
         bottom_distance = state["next_pipe_bottom_y"] - state["player_y"]
+        next_top_distance = state["next_next_pipe_top_y"] - state["player_y"]
+        next_bottom_distance = state["next_next_pipe_bottom_y"] - state["player_y"]
 
-        return np.array([player_y, horizontal_distance, bottom_distance])
-    
-    def get_reward(self, env):
-        reward = 0
-        frames = env.getFrameNumber()
-        state = env.getGameState()
-        done = env.game_over()
-
-        if frames >= 10 and not done:
-            reward += 5
-        if state["next_pipe_bottom_y"] < state["player_y"] < state["next_pipe_top_y"] and not done:
-            reward += 10
-        if done:
-            reward = -100
-        
-        return reward
+        return np.array([player_y, horizontal_distance, top_distance, bottom_distance, next_top_distance, next_bottom_distance])
         
     def experience_replay(self):
-        #perform training based on 100 random past experiences
+        #perform training based on 250 random past experiences
         if len(self.memory) > self.batch_size:
             sample = random.sample(self.memory, self.batch_size)
         else:

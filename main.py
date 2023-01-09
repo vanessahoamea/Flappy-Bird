@@ -11,8 +11,7 @@ if __name__ == "__main__":
     agent = Agent()
 
     #start training
-    max_episodes = 100
-    file = open("data/scores.txt", "w")
+    max_episodes = 10
 
     for episode in range(max_episodes):
         best_score = 0
@@ -34,7 +33,6 @@ if __name__ == "__main__":
 
                 #take selected action and move to the next state
                 reward = env.act(action_value) * 100
-                # reward = agent.get_reward(env)
                 next_state = agent.get_state(env.getGameState())
                 done = env.game_over()
 
@@ -48,23 +46,15 @@ if __name__ == "__main__":
             
             if score > best_score:
                 best_score = score
+                agent.model.save("trained_model")
 
         #save results
         average_score //= 100
-        file.write(f"{average_score} {best_score}\n")
         
         print(f"Episode {episode}: Average score: {average_score} \t Best score: {best_score}")
 
         #train the network
         agent.experience_replay()
         
-        #decay probability of taking random action and importance of future rewards
-        if agent.epsilon > 0.1:
-            agent.epsilon -= 0.008
-        if agent.gamma > 0.1:
-            agent.gamma -= 0.008
-
-    file.close()
-
-    #save trained model
-    agent.model.save("trained_model")
+        #decay probability of taking random action
+        agent.epsilon = 81 - episode
